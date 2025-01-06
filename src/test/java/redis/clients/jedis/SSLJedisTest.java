@@ -6,7 +6,6 @@ import static org.junit.Assert.assertTrue;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.net.URI;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyStore;
 import java.security.SecureRandom;
@@ -21,17 +20,15 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 public class SSLJedisTest {
 
-  @BeforeClass
-  public static void prepare() {
-    setupTrustStore();
-  }
+  protected static final EndpointConfig endpoint = HostAndPorts.getRedisEndpoint("standalone0-tls");
 
-  static void setupTrustStore() {
+  public static void setupTrustStore() {
     setJvmTrustStore("src/test/resources/truststore.jceks", "jceks");
   }
 
@@ -42,33 +39,52 @@ public class SSLJedisTest {
     System.setProperty("javax.net.ssl.trustStoreType", trustStoreType);
   }
 
+  public static void cleanupTrustStore() {
+    clearJvmTrustStore();
+  }
+
+  private static void clearJvmTrustStore() {
+    System.clearProperty("javax.net.ssl.trustStore");
+    System.clearProperty("javax.net.ssl.trustStoreType");
+  }
+
+  @BeforeClass
+  public static void prepare() {
+    setupTrustStore();
+  }
+
+  @AfterClass
+  public static void unprepare() {
+    cleanupTrustStore();
+  }
+
   @Test
   public void connectWithSsl() {
-    try (Jedis jedis = new Jedis("localhost", 6390, true)) {
-      jedis.auth("foobared");
+    try (Jedis jedis = new Jedis(endpoint.getHost(), endpoint.getPort(), true)) {
+      jedis.auth(endpoint.getPassword());
       assertEquals("PONG", jedis.ping());
     }
   }
 
   @Test
   public void connectWithConfig() {
-    try (Jedis jedis = new Jedis(new HostAndPort("localhost", 6390), DefaultJedisClientConfig
-        .builder().ssl(true).build())) {
-      jedis.auth("foobared");
+    try (Jedis jedis = new Jedis(endpoint.getHostAndPort(),
+        DefaultJedisClientConfig.builder().ssl(true).build())) {
+      jedis.auth(endpoint.getPassword());
       assertEquals("PONG", jedis.ping());
     }
   }
 
   @Test
   public void connectWithConfigInterface() {
-    try (Jedis jedis = new Jedis(new HostAndPort("localhost", 6390),
+    try (Jedis jedis = new Jedis(endpoint.getHostAndPort(),
         new JedisClientConfig() {
-      @Override
-      public boolean isSsl() {
-        return true;
-      }
-    })) {
-      jedis.auth("foobared");
+          @Override
+          public boolean isSsl() {
+            return true;
+          }
+        })) {
+      jedis.auth(endpoint.getPassword());
       assertEquals("PONG", jedis.ping());
     }
   }
@@ -79,8 +95,8 @@ public class SSLJedisTest {
   @Test
   public void connectWithUrl() {
     // The "rediss" scheme instructs jedis to open a SSL/TLS connection.
-    try (Jedis jedis = new Jedis("rediss://localhost:6390")) {
-      jedis.auth("foobared");
+    try (Jedis jedis = new Jedis(endpoint.getURI().toString())) {
+      jedis.auth(endpoint.getPassword());
       assertEquals("PONG", jedis.ping());
     }
   }
@@ -91,8 +107,8 @@ public class SSLJedisTest {
   @Test
   public void connectWithUri() {
     // The "rediss" scheme instructs jedis to open a SSL/TLS connection.
-    try (Jedis jedis = new Jedis(URI.create("rediss://localhost:6390"))) {
-      jedis.auth("foobared");
+    try (Jedis jedis = new Jedis(endpoint.getURI())) {
+      jedis.auth(endpoint.getPassword());
       assertEquals("PONG", jedis.ping());
     }
   }
@@ -168,6 +184,16 @@ public class SSLJedisTest {
         }
       }
       throw new IllegalArgumentException("The certificate has no common name.");
+    }
+  }
+
+  static class LocalhostVerifier extends BasicHostnameVerifier {
+    @Override
+    public boolean verify(String hostname, SSLSession session) {
+      if (hostname.equals("127.0.0.1")) {
+        hostname = "localhost";
+      }
+      return super.verify(hostname, session);
     }
   }
 }
