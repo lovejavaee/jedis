@@ -66,7 +66,7 @@ public class JedisFactory implements PooledObjectFactory<Jedis> {
   }
 
   protected JedisFactory(final HostAndPort hostAndPort, final JedisClientConfig clientConfig) {
-    this.clientConfig = DefaultJedisClientConfig.copyConfig(clientConfig);
+    this.clientConfig = clientConfig;
     this.jedisSocketFactory = new DefaultJedisSocketFactory(hostAndPort, this.clientConfig);
   }
 
@@ -83,7 +83,7 @@ public class JedisFactory implements PooledObjectFactory<Jedis> {
   }
 
   protected JedisFactory(final JedisSocketFactory jedisSocketFactory, final JedisClientConfig clientConfig) {
-    this.clientConfig = DefaultJedisClientConfig.copyConfig(clientConfig);
+    this.clientConfig = clientConfig;
     this.jedisSocketFactory = jedisSocketFactory;
   }
 
@@ -101,7 +101,7 @@ public class JedisFactory implements PooledObjectFactory<Jedis> {
   }
 
   /**
-   * {@link #setHostAndPort(redis.clients.jedis.HostAndPort) setHostAndPort} must be called later.
+   * {@link JedisFactory#setHostAndPort(redis.clients.jedis.HostAndPort) setHostAndPort} must be called later.
    */
   JedisFactory(final JedisClientConfig clientConfig) {
     this.clientConfig = clientConfig;
@@ -130,6 +130,7 @@ public class JedisFactory implements PooledObjectFactory<Jedis> {
         .socketTimeoutMillis(soTimeout).blockingSocketTimeoutMillis(infiniteSoTimeout)
         .user(JedisURIHelper.getUser(uri)).password(JedisURIHelper.getPassword(uri))
         .database(JedisURIHelper.getDBIndex(uri)).clientName(clientName)
+        .protocol(JedisURIHelper.getRedisProtocol(uri))
         .ssl(JedisURIHelper.isRedisSSLScheme(uri)).sslSocketFactory(sslSocketFactory)
         .sslParameters(sslParameters).hostnameVerifier(hostnameVerifier).build();
     this.jedisSocketFactory = new DefaultJedisSocketFactory(new HostAndPort(uri.getHost(), uri.getPort()), this.clientConfig);
@@ -140,15 +141,6 @@ public class JedisFactory implements PooledObjectFactory<Jedis> {
       throw new IllegalStateException("setHostAndPort method has limited capability.");
     }
     ((DefaultJedisSocketFactory) jedisSocketFactory).updateHostAndPort(hostAndPort);
-  }
-
-  /**
-   * @deprecated Use {@link RedisCredentialsProvider} through
-   * {@link JedisClientConfig#getCredentialsProvider()}.
-   */
-  @Deprecated
-  public void setPassword(final String password) {
-    this.clientConfig.updatePassword(password);
   }
 
   @Override
@@ -205,7 +197,7 @@ public class JedisFactory implements PooledObjectFactory<Jedis> {
           && jedis.getConnection().isConnected()
           && jedis.ping().equals("PONG");
     } catch (final Exception e) {
-      logger.error("Error while validating pooled Jedis object.", e);
+      logger.warn("Error while validating pooled Jedis object.", e);
       return false;
     }
   }
