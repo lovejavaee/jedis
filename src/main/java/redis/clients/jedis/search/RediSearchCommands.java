@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import redis.clients.jedis.commands.ConfigCommands;
 import redis.clients.jedis.resps.Tuple;
 import redis.clients.jedis.search.aggr.AggregationBuilder;
 import redis.clients.jedis.search.aggr.AggregationResult;
@@ -40,6 +41,16 @@ public interface RediSearchCommands {
 
   String ftAlter(String indexName, Iterable<SchemaField> schemaFields);
 
+  String ftAliasAdd(String aliasName, String indexName);
+
+  String ftAliasUpdate(String aliasName, String indexName);
+
+  String ftAliasDel(String aliasName);
+
+  String ftDropIndex(String indexName);
+
+  String ftDropIndexDD(String indexName);
+
   default SearchResult ftSearch(String indexName) {
     return ftSearch(indexName, "*");
   }
@@ -50,6 +61,7 @@ public interface RediSearchCommands {
 
   SearchResult ftSearch(String indexName, Query query);
 
+  @Deprecated
   SearchResult ftSearch(byte[] indexName, Query query);
 
   String ftExplain(String indexName, Query query);
@@ -62,18 +74,14 @@ public interface RediSearchCommands {
 
   String ftCursorDel(String indexName, long cursorId);
 
-  Map.Entry<AggregationResult, Map<String, Object>> ftProfileAggregate(String indexName,
+  Map.Entry<AggregationResult, ProfilingInfo> ftProfileAggregate(String indexName,
       FTProfileParams profileParams, AggregationBuilder aggr);
 
-  Map.Entry<SearchResult, Map<String, Object>> ftProfileSearch(String indexName,
+  Map.Entry<SearchResult, ProfilingInfo> ftProfileSearch(String indexName,
       FTProfileParams profileParams, Query query);
 
-  Map.Entry<SearchResult, Map<String, Object>> ftProfileSearch(String indexName,
+  Map.Entry<SearchResult, ProfilingInfo> ftProfileSearch(String indexName,
       FTProfileParams profileParams, String query, FTSearchParams searchParams);
-
-  String ftDropIndex(String indexName);
-
-  String ftDropIndexDD(String indexName);
 
   String ftSynUpdate(String indexName, String synonymGroupId, String... terms);
 
@@ -100,18 +108,22 @@ public interface RediSearchCommands {
 
   Set<String> ftTagVals(String indexName, String fieldName);
 
-  String ftAliasAdd(String aliasName, String indexName);
+  /**
+   * @deprecated {@link ConfigCommands#configGet(java.lang.String)} is used since Redis 8.
+   */
+  @Deprecated
+  Map<String, Object> ftConfigGet(String option);
 
-  String ftAliasUpdate(String aliasName, String indexName);
+  @Deprecated
+  Map<String, Object> ftConfigGet(String indexName, String option);
 
-  String ftAliasDel(String aliasName);
-
-  Map<String, String> ftConfigGet(String option);
-
-  Map<String, String> ftConfigGet(String indexName, String option);
-
+  /**
+   * @deprecated {@link ConfigCommands#configSet(java.lang.String, java.lang.String)} is used since Redis 8.
+   */
+  @Deprecated
   String ftConfigSet(String option, String value);
 
+  @Deprecated
   String ftConfigSet(String indexName, String option, String value);
 
   long ftSugAdd(String key, String string, double score);
@@ -130,5 +142,5 @@ public interface RediSearchCommands {
 
   long ftSugLen(String key);
 
-  List<String> ftList();
+  Set<String> ftList();
 }

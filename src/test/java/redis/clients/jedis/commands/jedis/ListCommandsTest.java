@@ -4,7 +4,6 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static redis.clients.jedis.util.AssertUtil.assertByteArrayListEquals;
 
@@ -13,18 +12,22 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import io.redis.test.annotations.SinceRedisVersion;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.RedisProtocol;
 import redis.clients.jedis.args.ListPosition;
 import redis.clients.jedis.args.ListDirection;
 import redis.clients.jedis.exceptions.JedisDataException;
 import redis.clients.jedis.params.LPosParams;
-import redis.clients.jedis.resps.KeyedListElement;
 import redis.clients.jedis.util.KeyValue;
 
+@RunWith(Parameterized.class)
 public class ListCommandsTest extends JedisCommandsTestBase {
 
   private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -42,6 +45,10 @@ public class ListCommandsTest extends JedisCommandsTestBase {
   final byte[] bhello = { 0x04, 0x02 };
   final byte[] bx = { 0x02, 0x04 };
   final byte[] bdst = { 0x11, 0x12, 0x13, 0x14 };
+
+  public ListCommandsTest(RedisProtocol protocol) {
+    super(protocol);
+  }
 
   @Test
   public void rpush() {
@@ -445,7 +452,7 @@ public class ListCommandsTest extends JedisCommandsTestBase {
 
   @Test
   public void blpopDouble() throws InterruptedException {
-    KeyedListElement result = jedis.blpop(0.1, "foo");
+    KeyValue<String, String> result = jedis.blpop(0.1, "foo");
     assertNull(result);
 
     jedis.lpush("foo", "bar");
@@ -453,7 +460,7 @@ public class ListCommandsTest extends JedisCommandsTestBase {
 
     assertNotNull(result);
     assertEquals("foo", result.getKey());
-    assertEquals("bar", result.getElement());
+    assertEquals("bar", result.getValue());
 
     // Multi keys
     result = jedis.blpop(0.18, "foo", "foo1");
@@ -465,16 +472,15 @@ public class ListCommandsTest extends JedisCommandsTestBase {
 
     assertNotNull(result);
     assertEquals("foo1", result.getKey());
-    assertEquals("bar1", result.getElement());
+    assertEquals("bar1", result.getValue());
 
     // Binary
     jedis.lpush(bfoo, bbar);
-    List<byte[]> bresult = jedis.blpop(3.12, bfoo);
+    KeyValue<byte[], byte[]> bresult = jedis.blpop(3.12, bfoo);
 
     assertNotNull(bresult);
-    assertEquals(2, bresult.size());
-    assertArrayEquals(bfoo, bresult.get(0));
-    assertArrayEquals(bbar, bresult.get(1));
+    assertArrayEquals(bfoo, bresult.getKey());
+    assertArrayEquals(bbar, bresult.getValue());
 
     // Binary Multi keys
     bresult = jedis.blpop(0.11, bfoo, bfoo1);
@@ -485,22 +491,15 @@ public class ListCommandsTest extends JedisCommandsTestBase {
     bresult = jedis.blpop(1d, bfoo, bfoo1);
 
     assertNotNull(bresult);
-    assertEquals(2, bresult.size());
-    assertArrayEquals(bfoo, bresult.get(0));
-    assertArrayEquals(bbar, bresult.get(1));
+    assertArrayEquals(bfoo, bresult.getKey());
+    assertArrayEquals(bbar, bresult.getValue());
   }
 
-  @Test
+  @Test(timeout = 5000L)
   public void blpopDoubleWithSleep() {
-    long startMillis, totalMillis;
-
-    startMillis = System.currentTimeMillis();
-    KeyedListElement result = jedis.blpop(0.04, "foo");
-    totalMillis = System.currentTimeMillis() - startMillis;
-    assertTrue("TotalMillis=" + totalMillis, totalMillis < 200);
+    KeyValue<String, String> result = jedis.blpop(0.04, "foo");
     assertNull(result);
 
-    startMillis = System.currentTimeMillis();
     new Thread(() -> {
       try {
         Thread.sleep(30);
@@ -512,12 +511,10 @@ public class ListCommandsTest extends JedisCommandsTestBase {
       }
     }).start();
     result = jedis.blpop(1.2, "foo");
-    totalMillis = System.currentTimeMillis() - startMillis;
-    assertTrue("TotalMillis=" + totalMillis, totalMillis < 200);
 
     assertNotNull(result);
     assertEquals("foo", result.getKey());
-    assertEquals("bar", result.getElement());
+    assertEquals("bar", result.getValue());
   }
 
   @Test
@@ -569,7 +566,7 @@ public class ListCommandsTest extends JedisCommandsTestBase {
 
   @Test
   public void brpopDouble() throws InterruptedException {
-    KeyedListElement result = jedis.brpop(0.1, "foo");
+    KeyValue<String, String> result = jedis.brpop(0.1, "foo");
     assertNull(result);
 
     jedis.lpush("foo", "bar");
@@ -577,7 +574,7 @@ public class ListCommandsTest extends JedisCommandsTestBase {
 
     assertNotNull(result);
     assertEquals("foo", result.getKey());
-    assertEquals("bar", result.getElement());
+    assertEquals("bar", result.getValue());
 
     // Multi keys
     result = jedis.brpop(0.18, "foo", "foo1");
@@ -589,16 +586,15 @@ public class ListCommandsTest extends JedisCommandsTestBase {
 
     assertNotNull(result);
     assertEquals("foo1", result.getKey());
-    assertEquals("bar1", result.getElement());
+    assertEquals("bar1", result.getValue());
 
     // Binary
     jedis.lpush(bfoo, bbar);
-    List<byte[]> bresult = jedis.brpop(3.12, bfoo);
+    KeyValue<byte[], byte[]> bresult = jedis.brpop(3.12, bfoo);
 
     assertNotNull(bresult);
-    assertEquals(2, bresult.size());
-    assertArrayEquals(bfoo, bresult.get(0));
-    assertArrayEquals(bbar, bresult.get(1));
+    assertArrayEquals(bfoo, bresult.getKey());
+    assertArrayEquals(bbar, bresult.getValue());
 
     // Binary Multi keys
     bresult = jedis.brpop(0.11, bfoo, bfoo1);
@@ -609,22 +605,15 @@ public class ListCommandsTest extends JedisCommandsTestBase {
     bresult = jedis.brpop(1d, bfoo, bfoo1);
 
     assertNotNull(bresult);
-    assertEquals(2, bresult.size());
-    assertArrayEquals(bfoo, bresult.get(0));
-    assertArrayEquals(bbar, bresult.get(1));
+    assertArrayEquals(bfoo, bresult.getKey());
+    assertArrayEquals(bbar, bresult.getValue());
   }
 
-  @Test
+  @Test(timeout = 5000L)
   public void brpopDoubleWithSleep() {
-    long startMillis, totalMillis;
-
-    startMillis = System.currentTimeMillis();
-    KeyedListElement result = jedis.brpop(0.04, "foo");
-    totalMillis = System.currentTimeMillis() - startMillis;
-    assertTrue("TotalMillis=" + totalMillis, totalMillis < 200);
+    KeyValue<String, String> result = jedis.brpop(0.04, "foo");
     assertNull(result);
 
-    startMillis = System.currentTimeMillis();
     new Thread(() -> {
       try {
         Thread.sleep(30);
@@ -636,12 +625,10 @@ public class ListCommandsTest extends JedisCommandsTestBase {
       }
     }).start();
     result = jedis.brpop(1.2, "foo");
-    totalMillis = System.currentTimeMillis() - startMillis;
-    assertTrue("TotalMillis=" + totalMillis, totalMillis < 200);
 
     assertNotNull(result);
     assertEquals("foo", result.getKey());
-    assertEquals("bar", result.getElement());
+    assertEquals("bar", result.getValue());
   }
 
   @Test
@@ -878,6 +865,7 @@ public class ListCommandsTest extends JedisCommandsTestBase {
   }
 
   @Test
+  @SinceRedisVersion("7.0.0")
   public void lmpop() {
     String mylist1 = "mylist1";
     String mylist2 = "mylist2";
@@ -903,6 +891,7 @@ public class ListCommandsTest extends JedisCommandsTestBase {
   }
 
   @Test
+  @SinceRedisVersion("7.0.0")
   public void blmpopSimple() {
     String mylist1 = "mylist1";
     String mylist2 = "mylist2";

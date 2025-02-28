@@ -7,9 +7,12 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.util.List;
+
+import io.redis.test.annotations.SinceRedisVersion;
 import org.junit.Test;
 
 import redis.clients.jedis.Protocol;
+import redis.clients.jedis.RedisProtocol;
 import redis.clients.jedis.args.BitCountOption;
 import redis.clients.jedis.args.BitOP;
 import redis.clients.jedis.exceptions.JedisDataException;
@@ -17,6 +20,10 @@ import redis.clients.jedis.params.BitPosParams;
 import redis.clients.jedis.util.SafeEncoder;
 
 public abstract class BitCommandsTestBase extends UnifiedJedisCommandsTestBase {
+
+  public BitCommandsTestBase(RedisProtocol protocol) {
+    super(protocol);
+  }
 
   @Test
   public void setAndgetbit() {
@@ -35,6 +42,7 @@ public abstract class BitCommandsTestBase extends UnifiedJedisCommandsTestBase {
     String foo = "foo";
 
     jedis.set(foo, String.valueOf(0));
+    //  string "0" with bits: 0011 0000
 
     jedis.setbit(foo, 3, true);
     jedis.setbit(foo, 7, true);
@@ -42,7 +50,8 @@ public abstract class BitCommandsTestBase extends UnifiedJedisCommandsTestBase {
     jedis.setbit(foo, 39, true);
 
     /*
-     * byte: 0 1 2 3 4 bit: 00010001 / 00000100 / 00000000 / 00000000 / 00000001
+     * bit:  00110001 / 00000100 / 00000000 / 00000000 / 00000001
+     * byte: 0          1          2          3          4
      */
     long offset = jedis.bitpos(foo, true);
     assertEquals(2, offset);
@@ -69,6 +78,7 @@ public abstract class BitCommandsTestBase extends UnifiedJedisCommandsTestBase {
     byte[] bfoo = { 0x01, 0x02, 0x03, 0x04 };
 
     jedis.set(bfoo, Protocol.toByteArray(0));
+    // bits: 0011 0000
 
     jedis.setbit(bfoo, 3, true);
     jedis.setbit(bfoo, 7, true);
@@ -76,7 +86,8 @@ public abstract class BitCommandsTestBase extends UnifiedJedisCommandsTestBase {
     jedis.setbit(bfoo, 39, true);
 
     /*
-     * byte: 0 1 2 3 4 bit: 00010001 / 00000100 / 00000000 / 00000000 / 00000001
+     * bit:  00110001 / 00000100 / 00000000 / 00000000 / 00000001
+     * byte: 0          1          2          3          4
      */
     long offset = jedis.bitpos(bfoo, true);
     assertEquals(2, offset);
@@ -107,7 +118,8 @@ public abstract class BitCommandsTestBase extends UnifiedJedisCommandsTestBase {
     }
 
     /*
-     * byte: 0 bit: 11111111
+     * bit:  11111111
+     * byte: 0
      */
     long offset = jedis.bitpos(foo, false);
     // offset should be last index + 1
@@ -124,7 +136,8 @@ public abstract class BitCommandsTestBase extends UnifiedJedisCommandsTestBase {
     }
 
     /*
-     * byte: 0 1 2 3 4 bit: 11111111 / 11111111 / 11111111 / 11111111 / 11111111
+     * bit:  11111111 / 11111111 / 11111111 / 11111111 / 11111111
+     * byte: 0          1          2          3          4
      */
     long offset = jedis.bitpos(foo, false, new BitPosParams(2, 3));
     // offset should be -1
@@ -132,6 +145,7 @@ public abstract class BitCommandsTestBase extends UnifiedJedisCommandsTestBase {
   }
 
   @Test
+  @SinceRedisVersion(value="7.0.0", message="Starting with Redis version 7.0.0: Added the BYTE|BIT option.")
   public void bitposModifier() {
     jedis.set("mykey", "\\x00\\xff\\xf0");
     assertEquals(0, jedis.bitpos("mykey", false));
@@ -157,6 +171,7 @@ public abstract class BitCommandsTestBase extends UnifiedJedisCommandsTestBase {
   }
 
   @Test
+  @SinceRedisVersion(value="7.0.0", message="Starting with Redis version 7.0.0: Added the BYTE|BIT option.")
   public void bitCount() {
     jedis.setbit("foo", 16, true);
     jedis.setbit("foo", 24, true);
